@@ -7,15 +7,14 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CA = "0x39db5438317e583d46123f4b114fef376872e00d"
 TOTAL_SUPPLY = 1000000000
-CHANNEL_ID = None  # LAGAY MO CHANNEL ID DITO: -1001234567890
+CHANNEL_ID = None  # LAGAY MO DITO: -1001234567890
 
-# YUNG IMAGE NA GUSTO MO - I-UPLOAD MO SA 【entity-GITHUB¦canonical_name=GitHub】 AS template.png
-TEMPLATE_PATH = "template.png"  # yang image na may maraming rocket!
+TEMPLATE_PATH = "template.png"
 
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
-    return "MEH Bot LIVE - Exact Design!"
+    return "MEH Bot LIVE - Exact Rocket Design!"
 
 def run_flask():
     flask_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
@@ -46,7 +45,8 @@ def get_live_data():
             pass
         burn_pct = (burned / TOTAL_SUPPLY * 100) if TOTAL_SUPPLY > 0 else 2.32
         return mcap, price, vol, liq, burned, burn_pct, pair_addr
-    except:
+    except Exception as e:
+        print(f"Data error: {e}")
         return 66, 0.0000000694, 148, 34, 23240000, 2.32, ""
 
 def get_font(size, bold=True):
@@ -59,58 +59,68 @@ def make_card(buy_amount=0, buyer=""):
     mcap, price, vol, liq, burned, burn_pct, pair_addr = get_live_data()
     gain = (mcap / 10) if mcap > 0 else 6.60
 
-    # LOAD EXACT TEMPLATE MO
+    # LOAD YOUR EXACT TEMPLATE
     if os.path.exists(TEMPLATE_PATH):
         img = Image.open(TEMPLATE_PATH).convert("RGB")
         W, H = img.size
     else:
-        # Fallback kung wala template - gumawa ng black
-        W, H = 1024, 1300
-        img = Image.new('RGB', (W, H), 'black')
+        W, H = 1024, 1536
+        img = Image.new('RGB', (W, H), '#000000')
     
     draw = ImageDraw.Draw(img)
-    
-    # Overlay with semi-transparent black boxes para mabura luma numbers
-    # Tapos lagay bagong live numbers
-    
-    # TOP - $MEH 6.60x
-    # Takpan luma
-    draw.rectangle([(0, 0), (W, 220)], fill="black")
-    # Bagong text - EXACT STYLE
-    draw.text((W//2, 10), f"$MEH {gain:.2f}x", fill="#00FF00", font=get_font(85, True), anchor="mt", stroke_width=3, stroke_fill="black")
-    draw.text((W//2, 110), "BULLISH AF", fill="#FFFF00", font=get_font(60, True), anchor="mt", stroke_width=3, stroke_fill="black")
 
-    # BOXES - MCap, Vol, Liq, Price - takpan at palitan ng live data
-    # MCap box
-    draw.rounded_rectangle([(115, 740), (485, 880)], radius=15, fill="#001100", outline="#00FF00", width=3)
-    draw.text((300, 750), "MCap", fill="#00FF00", font=get_font(22, True), anchor="mt")
-    draw.text((300, 785), f"${mcap:,.0f}", fill="white", font=get_font(48, True), anchor="mt")
-    
-    # Vol box
-    draw.rounded_rectangle([(540, 740), (910, 880)], radius=15, fill="#001100", outline="#00FF00", width=3)
-    draw.text((725, 750), "Vol", fill="#00FF00", font=get_font(22, True), anchor="mt")
-    draw.text((725, 785), f"${vol:,.0f}", fill="white", font=get_font(48, True), anchor="mt")
-    
-    # Liq box
-    draw.rounded_rectangle([(115, 900), (485, 1040)], radius=15, fill="#001100", outline="#00FF00", width=3)
-    draw.text((300, 910), "Liq", fill="#00FF00", font=get_font(22, True), anchor="mt")
-    draw.text((300, 945), f"${liq:,.0f}", fill="white", font=get_font(48, True), anchor="mt")
-    
-    # Price box
-    draw.rounded_rectangle([(540, 900), (910, 1040)], radius=15, fill="#001100", outline="#00FF00", width=3)
-    draw.text((725, 910), "Price", fill="#00FF00", font=get_font(22, True), anchor="mt")
-    draw.text((725, 955), f"${price:.10f}", fill="white", font=get_font(28, True), anchor="mt")
-
-    # BURN BOX - EXACT NA MAY APOY
-    draw.rounded_rectangle([(30, 1070), (W-30, 1200)], radius=20, fill="#1A0000", outline="#FF4400", width=4)
-    draw.text((W//2, 1080), "🔥 TOTAL BURNED 🔥", fill="#FF6600", font=get_font(28, True), anchor="mt")
-    draw.text((W//2, 1120), f"{burned/1000000:.2f}M MEH {burn_pct:.2f}%", fill="#FFAA00", font=get_font(36, True), anchor="mt")
-
-    # BUY ALERT BANNER
+    # BUY BANNER IF DETECTED
     if buy_amount >= 0.1:
-        draw.rounded_rectangle([(0, 0), (W, 140)], radius=0, fill="#FFD700")
-        draw.text((W//2, 15), f"🚀 NEW BUY! ${buy_amount:.2f} 🚀", fill="black", font=get_font(40, True), anchor="mt")
-        draw.text((W//2, 70), f"BUYER: {buyer[:12]}... WELCOME!", fill="black", font=get_font(20, True), anchor="mt")
+        # Yellow banner sa taas
+        draw.rectangle([(0, 0), (W, 180)], fill="#FFD700")
+        draw.text((W//2, 20), f"🚀 NEW BUY! ${buy_amount:.2f} 🚀", fill="black", font=get_font(55, True), anchor="mt")
+        draw.text((W//2, 95), f"{buyer[:18]}... WELCOME TO $MEH!", fill="black", font=get_font(28, True), anchor="mt")
+    else:
+        # Normal top - overwrite old 6.60x with live gain
+        # Cover old text with black
+        draw.rectangle([(0, 0), (W, 320)], fill="black")
+        # Draw grid lines to match template
+        for i in range(0, W, 100):
+            draw.line([(i, 0), (i//2, 320)], fill="#003300", width=1)
+        draw.text((W//2, 10), f"$MEH {gain:.2f}x", fill="#39FF14", font=get_font(110, True), anchor="mt", stroke_width=4, stroke_fill="black")
+        draw.text((W//2, 145), "BULLISH AF", fill="#FFEB00", font=get_font(75, True), anchor="mt", stroke_width=4, stroke_fill="black")
+        # Redraw some rockets sa taas para di mabura
+        draw.text((W//2, 220), "🚀 🚀 🚀", fill="white", font=get_font(30), anchor="mt")
+
+    # MCap LIVE
+    draw.rectangle([(110, 740), (490, 885)], fill="#000A00")
+    draw.rounded_rectangle([(110, 740), (490, 885)], radius=15, outline="#00FF00", width=3)
+    draw.text((300, 755), "MCap", fill="black", font=get_font(24, True), anchor="mt")
+    draw.rectangle([(210, 750), (390, 780)], fill="#39FF14")
+    draw.text((300, 755), "MCap", fill="black", font=get_font(24, True), anchor="mt")
+    draw.text((300, 795), f"${mcap:,.0f}", fill="white", font=get_font(52, True), anchor="mt", stroke_width=2, stroke_fill="black")
+
+    # Vol LIVE
+    draw.rectangle([(535, 740), (915, 885)], fill="#000A00")
+    draw.rounded_rectangle([(535, 740), (915, 885)], radius=15, outline="#00FF00", width=3)
+    draw.rectangle([(635, 750), (815, 780)], fill="#39FF14")
+    draw.text((725, 755), "Vol", fill="black", font=get_font(24, True), anchor="mt")
+    draw.text((725, 795), f"${vol:,.0f}", fill="white", font=get_font(52, True), anchor="mt", stroke_width=2, stroke_fill="black")
+
+    # Liq LIVE
+    draw.rectangle([(110, 905), (490, 1050)], fill="#000A00")
+    draw.rounded_rectangle([(110, 905), (490, 1050)], radius=15, outline="#00FF00", width=3)
+    draw.rectangle([(210, 910), (390, 940)], fill="#39FF14")
+    draw.text((300, 915), "Liq", fill="black", font=get_font(24, True), anchor="mt")
+    draw.text((300, 960), f"${liq:,.0f}", fill="white", font=get_font(52, True), anchor="mt", stroke_width=2, stroke_fill="black")
+
+    # Price LIVE
+    draw.rectangle([(535, 905), (915, 1050)], fill="#000A00")
+    draw.rounded_rectangle([(535, 905), (915, 1050)], radius=15, outline="#00FF00", width=3)
+    draw.rectangle([(635, 910), (815, 940)], fill="#39FF14")
+    draw.text((725, 915), "Price", fill="black", font=get_font(24, True), anchor="mt")
+    draw.text((725, 965), f"${price:.10f}", fill="white", font=get_font(30, True), anchor="mt", stroke_width=1, stroke_fill="black")
+
+    # BURN BOX LIVE - with fire
+    draw.rectangle([(20, 1075), (W-20, 1210)], fill="#1A0000")
+    draw.rounded_rectangle([(20, 1075), (W-20, 1210)], radius=15, outline="#FF4400", width=4)
+    draw.text((W//2, 1085), "🔥 TOTAL BURNED 🔥", fill="#FF6600", font=get_font(32, True), anchor="mt")
+    draw.text((W//2, 1130), f"{burned/1000000:.2f}M MEH {burn_pct:.2f}%", fill="#FFAA00", font=get_font(42, True), anchor="mt", stroke_width=2, stroke_fill="black")
 
     path = "/tmp/meh.png"
     img.save(path, quality=95)
@@ -119,7 +129,7 @@ def make_card(buy_amount=0, buyer=""):
 last_tx_hash = ""
 def monitor_buys(app):
     global last_tx_hash
-    print("AUTO BUY MONITOR STARTED $0.1")
+    print("AUTO BUY MONITOR $0.1 STARTED")
     while True:
         try:
             mcap, price, vol, liq, burned, burn_pct, pair_addr = get_live_data()
@@ -133,36 +143,36 @@ def monitor_buys(app):
                     tx_hash = tx.get('hash', '')
                     if tx_hash == last_tx_hash:
                         break
-                    if tx.get('from', '').lower() == pair_addr.lower():
-                        value = int(tx.get('value', 0))
-                        for dec in [9, 18]:
-                            amount_tokens = value / (10 ** dec)
-                            if 0 < amount_tokens < TOTAL_SUPPLY:
-                                usd_value = amount_tokens * price
-                                if usd_value >= 0.1:
-                                    print(f"BUY ${usd_value:.2f}")
+                    if tx.get('from','').lower() == pair_addr.lower():
+                        value = int(tx.get('value',0))
+                        for dec in [9,18]:
+                            tokens = value/(10**dec)
+                            if 0 < tokens < TOTAL_SUPPLY:
+                                usd = tokens*price
+                                if usd >= 0.1:
+                                    print(f"BUY DETECTED ${usd:.2f}")
                                     last_tx_hash = tx_hash
-                                    path, gain, mcap, price, vol, burned, burn_pct = make_card(buy_amount=usd_value, buyer=tx.get('to',''))
-                                    caption = f"🚀 NEW BUY ${usd_value:.2f}! 🚀\n$M EH {gain:.2f}x | MCap ${mcap:,.0f}\n🔥 Burned {burned/1000000:.2f}M\n{CA}"
+                                    path, gain, mcap, price, vol, burned, burn_pct = make_card(buy_amount=usd, buyer=tx.get('to',''))
+                                    caption = f"🚀 NEW BUY! ${usd:.2f} 🚀\n$MEH {gain:.2f}x | MCap ${mcap:,.0f}\n🔥 {burned/1000000:.2f}M Burned\n{CA}"
                                     try:
                                         loop = asyncio.new_event_loop()
                                         asyncio.set_event_loop(loop)
                                         if CHANNEL_ID:
-                                            loop.run_until_complete(app.bot.send_photo(chat_id=CHANNEL_ID, photo=open(path, 'rb'), caption=caption))
+                                            loop.run_until_complete(app.bot.send_photo(chat_id=CHANNEL_ID, photo=open(path,'rb'), caption=caption))
                                     except Exception as e:
                                         print(e)
                                     break
         except Exception as e:
-            print(f"Monitor error: {e}")
+            print(f"Monitor error {e}")
         time.sleep(15)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ MEH Bot LIVE - Exact Design!\n/mehcard")
+    await update.message.reply_text("✅ MEH Bot LIVE - Exact Rocket Design!\n/mehcard")
 
 async def mehcard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     path, gain, mcap, price, vol, burned, burn_pct = make_card()
     caption = f"🚀 $MEH {gain:.2f}x BULLISH AF! 🚀\n💰 MCap ${mcap:,.0f} Vol ${vol:,.0f}\n🔥 {burned/1000000:.2f}M Burned {burn_pct:.2f}%\n{CA}"
-    await update.message.reply_photo(photo=open(path, 'rb'), caption=caption)
+    await update.message.reply_photo(photo=open(path,'rb'), caption=caption)
 
 def run_bot():
     loop = asyncio.new_event_loop()
@@ -171,7 +181,7 @@ def run_bot():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("mehcard", mehcard))
     threading.Thread(target=monitor_buys, args=(app,), daemon=True).start()
-    print("BOT LIVE - EXACT DESIGN")
+    print("BOT LIVE - EXACT TEMPLATE")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
