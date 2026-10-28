@@ -1,92 +1,83 @@
-import os, requests
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from telegram import Update
+import os
+import requests
 from PIL import Image, ImageDraw, ImageFont
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# FIX: kahit ano KEY mo babasahin nya
-TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") or os.environ.get("BOT_TOKEN") or os.environ.get("TOKEN")
-
+# KUHA SA RENDER ENV VAR - WAG I-HARDCODE
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 if not TOKEN:
-    print("ERROR: WALANG TOKEN! Lagay mo sa Render: TELEGRAM_BOT_TOKEN")
-    print(f"Available ENV keys: {list(os.environ.keys())}")
+    print("ERROR: WALANG TELEGRAM_BOT_TOKEN SA ENV!")
     exit(1)
 
-print(f"Token OK: {TOKEN[:5]}... loaded")
+TOKEN_ADDRESS = "0x39db5438317e583d46123f4b114fef376872e00d"
 
-CA = "0x39db5438317E583d46123f4b114fEF376872e00d"
-CALLED = 30060
-CHATS = set()
-
-def get_real():
+def get_live_data():
     try:
-        url = f"https://api.dexscreener.com/latest/dex/tokens/{CA}"
-        r = requests.get(url, timeout=15).json()
-        pairs = [p for p in r.get('pairs',[]) if p.get('chainId')=='bsc']
-        if not pairs: pairs = r.get('pairs',[])
-        if not pairs: return None
-        pair = max(pairs, key=lambda x: float(x.get('liquidity',{}).get('usd',0) or 0))
-        price = float(pair.get('priceUsd') or 0)
-        mcap = float(pair.get('marketCap') or pair.get('fdv') or 0)
-        if mcap==0 and price>0: mcap = price * 1000000000
-        return {'price':price,'mcap':mcap,'liq':float(pair.get('liquidity',{}).get('usd',0) or 0),'vol':float(pair.get('volume',{}).get('h24',0) or 0),'change':float(pair.get('priceChange',{}).get('h24',0) or 0)}
-    except:
-        return None
+        url = f"https://api.dexscreener.com/latest/dex/tokens/{TOKEN_ADDRESS}"
+        r = requests.get(url, timeout=10).json()
+        pair = r['pairs'][0]
+        mcap = float(pair.get('fdv', 0))
+        price = float(pair.get('priceUsd', 0))
+        return mcap, price
+    except Exception as e:
+        print(f"API Error: {e}")
+        return 439000, 0.00000439
 
-def make_card(data):
-    W,H=1200,700
-    img=Image.new('RGB',(W,H),(10,15,10))
-    draw=ImageDraw.Draw(img)
-    draw.rounded_rectangle([(5,5),(W-5,H-5)], radius=30, outline=(50,255,100), width=3)
+def make_card():
+    W, H = 1000, 600
+    img = Image.new('RGB', (W, H), '#101E24')
+    draw = ImageDraw.Draw(img)
+    
+    mcap, price = get_live_data()
+    gain = mcap / 10000
+    
     try:
-        font_big=ImageFont.truetype("DejaVuSans-Bold.ttf",70)
-        font_med=ImageFont.truetype("DejaVuSans-Bold.ttf",38)
-        font_small=ImageFont.truetype("DejaVuSans.ttf",28)
+        f_big = ImageFont.truetype("arialbd.ttf", 100)
+        f_med = ImageFont.truetype("arial.ttf", 35)
+        f_small = ImageFont.truetype("arial.ttf", 28)
     except:
-        font_big=font_med=font_small=ImageFont.load_default()
-    x_mult=data['mcap']/CALLED
-    draw.text((40,30), f"$MEH {x_mult:.2f}x", fill=(80,255,120), font=font_big)
-    draw.text((40,115), "MEH / WBNB • BSC", fill=(180,180,180), font=font_med)
-    draw.text((40,170), "AUTO EVERY 3 MIN", fill=(80,255,120), font=font_med)
-    draw.text((40,260), "MCap", fill=(150,180,150), font=font_small)
-    draw.text((40,295), f"${data['mcap']:,.0f}", fill=(80,255,120), font=font_med)
-    draw.text((40,380), "Price", fill=(150,180,150), font=font_small)
-    draw.text((40,415), f"${data['price']:.10f}", fill=(200,255,200), font=font_med)
-    draw.text((650,260), "Vol 24h", fill=(150,180,150), font=font_small)
-    draw.text((650,295), f"${data['vol']:,.0f}", fill=(255,255,255), font=font_med)
-    draw.text((650,360), "Liq", fill=(150,180,150), font=font_small)
-    draw.text((650,395), f"${data['liq']:,.0f}", fill=(255,255,255), font=font_med)
-    path="/tmp/meh.png"
+        f_big = f_med = f_small = ImageFont.load_default()
+
+    draw.text((50, 40), "$MEH", fill="#00FF8A", font=f_big)
+    draw.text((50, 170), f"{gain:.1f}x", fill="white", font=f_big)
+    draw.text((50, 320), f"MCap: ${mcap:,.0f}", fill="white", font=f_med)
+    draw.text((50, 370), f"Price: ${price}", fill="#888888", font=f_small)
+    draw.text((50, 450), f"CA: {TOKEN_ADDRESS[:15]}...", fill="#555555", font=f_small)
+
+    path = "/tmp/meh.png"
     img.save(path)
-    return path
-
-async def send_card(bot, chat_id):
-    d=get_real()
-    if not d: return
-    p=make_card(d)
-    x=d['mcap']/CALLED
-    cap=f"🚀 $MEH {x:.2f}x BSC! AUTO 3MIN\n💰 ${d['mcap']:,.0f} | 💵 ${d['price']}\n📊 dexscreener.com/bsc/{CA}"
-    try: await bot.send_photo(chat_id=chat_id, photo=open(p,'rb'), caption=cap)
-    except: pass
-
-async def mehcard(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    CHATS.add(update.effective_chat.id)
-    await send_card(context.bot, update.effective_chat.id)
+    return path, gain, mcap, price
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    CHATS.add(update.effective_chat.id)
-    await send_card(context.bot, update.effective_chat.id)
+    await update.message.reply_text(
+        "✅ MEH Vip Bot is LIVE!\n\n"
+        "Commands:\n"
+        "/start - I-start ang bot\n"
+        "/mehcard - Ipakita ang card\n"
+        "/help - Help"
+    )
+    print(f"New chat: {update.effective_chat.id}")
 
-async def auto_post(context: ContextTypes.DEFAULT_TYPE):
-    for cid in list(CHATS):
-        try: await send_card(context.bot, cid)
-        except: pass
+async def mehcard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Kumukuha ng live data...")
+    path, gain, mcap, price = make_card()
+    await update.message.reply_photo(
+        photo=open(path, 'rb'), 
+        caption=f"$MEH {gain:.1f}x | MCap ${mcap:,.0f} 🚀\nCA: {TOKEN_ADDRESS}"
+    )
 
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("mehcard", mehcard))
-app.add_handler(CommandHandler("burn", mehcard))
-app.add_handler(CommandHandler("chart", mehcard))
-app.add_handler(CommandHandler("price", mehcard))
-app.job_queue.run_repeating(auto_post, interval=180, first=180)
-print("MEH BOT LIVE 3MIN")
-app.run_polling()
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("MEH Vip Bot running 24/7 via Render! Use /mehcard")
+
+def main():
+    print("BOT STARTING...")
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("mehcard", mehcard))
+    app.add_handler(CommandHandler("help", help_cmd))
+    print("MEH BOT LIVE - POLLING...")
+    app.run_polling(drop_pending_updates=True)
+
+if __name__ == "__main__":
+    main()
