@@ -1,6 +1,6 @@
+
 import os
 import time
-import asyncio
 import threading
 import requests
 from flask import Flask
@@ -137,7 +137,7 @@ async def mehcard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def monitor_buys(app):
     global last_hash
     print("Monitor buys started V2 - DIRECT HTTP")
-    print(f"CHANNEL_ID: '{CHANNEL_ID}'")
+    print(f"CHANNEL_ID: '{CHANNEL_ID}' API_KEY: {bool(API_KEY)}")
     while True:
         try:
             mcap, price, vol, liq, burned, burn_pct, pair_addr = get_live_data()
@@ -146,7 +146,7 @@ def monitor_buys(app):
                 continue
             url = f"https://api.etherscan.io/v2/api?chainid=56&module=account&action=tokentx&contractaddress={CA}&address={pair_addr}&page=1&offset=5&sort=desc&apikey={API_KEY}"
             resp = requests.get(url, timeout=15).json()
-            print(f"Checking buys: {resp.get('status')} count={len(resp.get('result',[])) if isinstance(resp.get('result'), list) else 0}")
+            print(f"Checking buys: status={resp.get('status')} count={len(resp.get('result',[])) if isinstance(resp.get('result'), list) else 0}")
             if resp.get('status') == '1' and resp.get('result'):
                 for tx in resp['result'][:3]:
                     h = tx.get('hash','')
@@ -158,7 +158,7 @@ def monitor_buys(app):
                             tokens = val/(10**dec)
                             if 0 < tokens < TOTAL_SUPPLY:
                                 usd = tokens*price
-                                print(f"BUY ${usd:.2f}")
+                                print(f"BUY DETECTED ${usd:.2f}")
                                 if usd >= 0.1:
                                     last_hash = h
                                     path, gain, mcap2, price2, vol2, liq2, burned2, burn_pct2, pair2 = make_card(buy_amount=usd, buyer=tx.get('to',''))
@@ -166,10 +166,12 @@ def monitor_buys(app):
                                     if CHANNEL_ID and BOT_TOKEN:
                                         try:
                                             cid = CHANNEL_ID.strip()
-                                            print(f"SENDING TO GROUP {cid}")
+                                            print(f"SENDING TO GROUP {cid} BUY ${usd:.2f}")
                                             with open(path, 'rb') as photo:
                                                 r = requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto", data={"chat_id": cid, "caption": caption}, files={"photo": photo}, timeout=30)
                                                 print(f"Telegram: {r.status_code} {r.text[:300]}")
+                                                if r.status_code == 200:
+                                                    print("SUCCESS POSTED TO GROUP!")
                                         except Exception as e:
                                             print(f"Send error: {e}")
                                     break
@@ -181,14 +183,14 @@ def main():
     if not BOT_TOKEN:
         print("TELEGRAM_BOT_TOKEN not set!")
         return
-    print(f"Starting bot - CHANNEL_ID: {CHANNEL_ID}")
+    print(f"Starting bot CHANNEL_ID={CHANNEL_ID}")
     application = Application.builder().token(BOT_TOKEN).build()
     application.add_handler(CommandHandler("mehcard", mehcard))
     application.add_handler(CommandHandler("start", mehcard))
     threading.Thread(target=lambda: app_flask.run(host='0.0.0.0', port=int(os.environ.get("PORT",10000))), daemon=True).start()
     threading.Thread(target=monitor_buys, args=(application,), daemon=True).start()
-    print("Bot polling...")
-    application.run_polling()
+    print("Bot polling with drop_pending_updates=True")
+    application.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
