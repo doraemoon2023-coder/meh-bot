@@ -3,7 +3,16 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from telegram import Update
 from PIL import Image, ImageDraw, ImageFont
 
-TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+# FIX: kahit ano KEY mo babasahin nya
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") or os.environ.get("BOT_TOKEN") or os.environ.get("TOKEN")
+
+if not TOKEN:
+    print("ERROR: WALANG TOKEN! Lagay mo sa Render: TELEGRAM_BOT_TOKEN")
+    print(f"Available ENV keys: {list(os.environ.keys())}")
+    exit(1)
+
+print(f"Token OK: {TOKEN[:5]}... loaded")
+
 CA = "0x5c59232e53c47a812c80e5d99ccf924cee875070"
 CALLED = 30060
 CHATS = set()
@@ -20,7 +29,8 @@ def get_real():
         mcap = float(pair.get('marketCap') or pair.get('fdv') or 0)
         if mcap==0 and price>0: mcap = price * 1000000000
         return {'price':price,'mcap':mcap,'liq':float(pair.get('liquidity',{}).get('usd',0) or 0),'vol':float(pair.get('volume',{}).get('h24',0) or 0),'change':float(pair.get('priceChange',{}).get('h24',0) or 0)}
-    except: return None
+    except:
+        return None
 
 def make_card(data):
     W,H=1200,700
