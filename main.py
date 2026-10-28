@@ -1,4 +1,5 @@
 import os
+import asyncio
 import threading
 from flask import Flask
 from telegram import Update
@@ -6,7 +7,6 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
-# Web server para sa Render Web Service
 flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
@@ -19,16 +19,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ LIVE NA BOSS! /mehcard")
 
 async def mehcard(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("$MEH 🚀 MCap $439k")
+    await update.message.reply_text("$MEH 🚀 MCap $439k - Working!")
 
 def run_bot():
+    # FIX para sa event loop error
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("mehcard", mehcard))
-    print("BOT LIVE")
+    print("BOT LIVE - POLLING STARTED")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
-    # Bot sa background thread, Flask sa main thread
-    threading.Thread(target=run_bot, daemon=True).start()
-    run_flask()
+    # Flask sa background, Bot sa main - baliktad para gumana
+    threading.Thread(target=run_flask, daemon=True).start()
+    run_bot()
