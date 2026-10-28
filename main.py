@@ -13,7 +13,7 @@ if not TOKEN:
 
 print(f"Token OK: {TOKEN[:5]}... loaded")
 
-CA = "0x5c59232e53c47a812c80e5d99ccf924cee875070"
+CA = "0x39db5438317E583d46123f4b114fEF376872e00d"
 CALLED = 30060
 CHATS = set()
 
