@@ -25,18 +25,12 @@ def get_live_data():
         price = float(pair.get('priceUsd', 0) or 0.0000000694)
         vol = float(pair.get('volume', {}).get('h24', 0) or 148)
         liq = float(pair.get('liquidity', {}).get('usd', 0) or 34)
-        # Token image
-        img_url = pair.get('info', {}).get('imageUrl') or pair.get('info', {}).get('header') or ""
-        # Also try base token image
-        if not img_url:
-            img_url = f"https://dd.dexscreener.com/ds-data/tokens/bsc/{CA}.png"
-        return mcap, price, vol, liq, img_url
-    except Exception as e:
-        print(f"Data error: {e}")
-        return 66, 0.0000000694, 148, 34, ""
+        return mcap, price, vol, liq
+    except:
+        return 66, 0.0000000694, 148, 34
 
 def get_font(size, bold=False):
-    for name in ["DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf", "arialbd.ttf", "arial.ttf"]:
+    for name in ["DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"]:
         try:
             return ImageFont.truetype(name, size)
         except:
@@ -45,78 +39,79 @@ def get_font(size, bold=False):
 
 def make_card():
     W, H = 1024, 700
-    mcap, price, vol, liq, logo_url = get_live_data()
-    gain = (mcap / 10) if mcap > 0 else 0.0  # para hindi 0.00x
+    mcap, price, vol, liq = get_live_data()
+    gain = (mcap / 10) if mcap > 0 else 0.0
 
-    # Background with gradient feel
-    img = Image.new('RGB', (W, H), '#000000')
+    # Bullish logic
+    if gain >= 10:
+        bg_color, border_color, title_color = "#0A1F0A", "#00FF00", "#00FF00"
+        emoji, hype_text, mode = "🚀🔥", "MEGA PUMP!!!", "MEGA BULLISH"
+    elif gain >= 5:
+        bg_color, border_color, title_color = "#0A1414", "#00FF88", "#00FF88"
+        emoji, hype_text, mode = "🚀", "BULLISH AF!", "BULLISH"
+    elif gain >= 1:
+        bg_color, border_color, title_color = "#14140A", "#FFD700", "#FFD700"
+        emoji, hype_text, mode = "📈", "PUMPING!", "PUMPING"
+    else:
+        bg_color, border_color, title_color = "#0A0A0A", "#00FF88", "#00FF88"
+        emoji, hype_text, mode = "💎", "EARLY GEM!", "EARLY"
+
+    img = Image.new('RGB', (W, H), bg_color)
     draw = ImageDraw.Draw(img)
-    
-    # Green border
-    draw.rounded_rectangle([(0,0),(W-1,H-1)], radius=30, outline="#00FF88", width=4)
-    # Inner glow
-    draw.rounded_rectangle([(8,8),(W-9,H-9)], radius=25, outline="#00FF88", width=1)
+    draw.rounded_rectangle([(0,0),(W-1,H-1)], radius=30, outline=border_color, width=5)
 
-    # Try to download and paste token logo
-    logo_size = 120
-    logo_x, logo_y = W - logo_size - 40, 30
+    # Logo
+    logo_size = 200
+    logo_x, logo_y = W - logo_size - 30, 20
     try:
-        if logo_url:
-            resp = requests.get(logo_url, timeout=5)
-            logo = Image.open(BytesIO(resp.content)).convert("RGBA")
+        if os.path.exists("logo.png"):
+            logo = Image.open("logo.png").convert("RGBA")
             logo = logo.resize((logo_size, logo_size), Image.LANCZOS)
-            # Make circular
             mask = Image.new('L', (logo_size, logo_size), 0)
             ImageDraw.Draw(mask).ellipse((0,0,logo_size,logo_size), fill=255)
             img.paste(logo, (logo_x, logo_y), mask)
-            draw.ellipse([(logo_x-3, logo_y-3),(logo_x+logo_size+3, logo_y+logo_size+3)], outline="#00FF88", width=3)
+            draw.ellipse([(logo_x-3, logo_y-3),(logo_x+logo_size+3, logo_y+logo_size+3)], outline=border_color, width=3)
     except Exception as e:
         print(f"Logo error: {e}")
-        # Fallback circle with $MEH text
-        draw.ellipse([(logo_x, logo_y),(logo_x+logo_size, logo_y+logo_size)], fill="#00FF88")
-        draw.text((logo_x+25, logo_y+35), "$MEH", fill="black", font=get_font(28, True))
 
-    f_big = get_font(75, True)
-    f_med = get_font(26, True)
-    f_label = get_font(20)
-    f_val = get_font(30, True)
+    draw.text((30, 15), f"{emoji} $MEH {gain:.2f}x", fill=title_color, font=get_font(70, True))
+    draw.text((30, 95), f"{hype_text} • {mode}", fill=title_color, font=get_font(22, True))
+    draw.text((30, 125), "MEH / WBNB • BSC", fill="white", font=get_font(26, True))
+    draw.text((30, 155), "AUTO EVERY 3 MIN", fill=border_color, font=get_font(16))
 
-    # Title
-    draw.text((30, 20), f"$MEH {gain:.2f}x", fill="#00FF88", font=f_big)
-    draw.text((30, 110), "MEH / WBNB • BSC", fill="white", font=f_med)
-    draw.text((30, 145), "AUTO EVERY 3 MIN • DEXSCREENER", fill="#00FF88", font=get_font(18))
+    draw.rounded_rectangle([(30, 210),(300, 300)], radius=12, fill="#111111")
+    draw.text((50, 220), "MCap", fill="#AAAAAA", font=get_font(20))
+    draw.text((50, 245), f"${mcap:,.0f}", fill=title_color, font=get_font(28, True))
 
-    # Stats with boxes
-    # MCap box
-    draw.rounded_rectangle([(30, 210),(300, 300)], radius=12, fill="#111111", outline="#333333")
-    draw.text((50, 220), "MCap", fill="#AAAAAA", font=f_label)
-    draw.text((50, 245), f"${mcap:,.0f}", fill="#00FF88", font=f_val)
+    draw.rounded_rectangle([(330, 210),(600, 300)], radius=12, fill="#111111")
+    draw.text((350, 220), "Vol 24h", fill="#AAAAAA", font=get_font(20))
+    draw.text((350, 245), f"${vol:,.0f}", fill="white", font=get_font(28, True))
 
-    draw.rounded_rectangle([(330, 210),(600, 300)], radius=12, fill="#111111", outline="#333333")
-    draw.text((350, 220), "Vol 24h", fill="#AAAAAA", font=f_label)
-    draw.text((350, 245), f"${vol:,.0f}", fill="white", font=f_val)
+    draw.rounded_rectangle([(630, 210),(900, 300)], radius=12, fill="#111111")
+    draw.text((650, 220), "Liq", fill="#AAAAAA", font=get_font(20))
+    draw.text((650, 245), f"${liq:,.0f}", fill="white", font=get_font(28, True))
 
-    draw.rounded_rectangle([(630, 210),(900, 300)], radius=12, fill="#111111", outline="#333333")
-    draw.text((650, 220), "Liq", fill="#AAAAAA", font=f_label)
-    draw.text((650, 245), f"${liq:,.0f}", fill="white", font=f_val)
+    draw.rounded_rectangle([(30, 320),(600, 410)], radius=12, fill="#111111")
+    draw.text((50, 330), "Price", fill="#AAAAAA", font=get_font(20))
+    draw.text((50, 355), f"${price:.10f}", fill="white", font=get_font(28, True))
 
-    draw.rounded_rectangle([(30, 320),(600, 410)], radius=12, fill="#111111", outline="#333333")
-    draw.text((50, 330), "Price", fill="#AAAAAA", font=f_label)
-    draw.text((50, 355), f"${price:.10f}", fill="white", font=f_val)
-
-    # CA footer
-    draw.text((30, 450), f"CA: {CA[:20]}...{CA[-10:]}", fill="#666666", font=get_font(16))
+    draw.text((30, 450), f"{emoji} {hype_text} {emoji}", fill=title_color, font=get_font(24, True))
 
     path = "/tmp/meh.png"
     img.save(path, quality=95)
-    return path, gain, mcap, price, vol
+    return path, gain, mcap, price, vol, mode, hype_text
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ MEH Vip Bot is LIVE!\n\nCommands:\n/start - Start\n/mehcard - Show MEH Card with logo")
+    await update.message.reply_text("✅ MEH Vip Bot is LIVE!\n\nCommands:\n/start - Start\n/mehcard - Show MEH Card")
 
 async def mehcard(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    path, gain, mcap, price, vol = make_card()
-    caption = f"🚀 $MEH {gain:.2f}x BSC! AUTO 3MIN\n💰 MCap ${mcap:,.0f} | Vol ${vol:,.0f}\n💵 {price:.10f}\n\n{CA}\ndexscreener.com/bsc/{CA}"
+    path, gain, mcap, price, vol, mode, hype = make_card()
+    if gain >= 10:
+        caption = f"🚀🚀🚀 MEGA BULLISH!!! $MEH {gain:.2f}x 🚀🚀🚀\n🔥 {hype} - WE PUMPING HARD!\n💰 MCap ${mcap:,.0f} | Vol ${vol:,.0f}\n💎 EARLY STILL - LFG!!!\n\n{CA}"
+    elif gain >= 5:
+        caption = f"🚀 BULLISH AF! $MEH {gain:.2f}x 🚀\n📈 {hype} - KEEP PUMPING!\n💰 MCap ${mcap:,.0f} | Vol ${vol:,.0f}\n\n{CA}"
+    else:
+        caption = f"{'🚀' if gain >=1 else '💎'} $MEH {gain:.2f}x BSC! {hype}\n💰 MCap ${mcap:,.0f} | Vol ${vol:,.0f}\n💵 {price:.10f}\n\n{CA}\ndexscreener.com/bsc/{CA}"
     await update.message.reply_photo(photo=open(path, 'rb'), caption=caption)
 
 def run_bot():
